@@ -1,0 +1,25 @@
+﻿{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "Instanced Static Mesh Converter",
+	"Description": "Plugin allows to convert actors with static mesh components to instanced static meshes",
+	"Category": "Programming",
+	"CreatedBy": "Yevhenii Selivanov",
+	"CreatedByURL": "https://github.com/JanSeliv/InstancedStaticMeshConverter",
+	"DocsURL": "",
+	"MarketplaceURL": "",
+	"SupportURL": "mailto:janseliw@gmail.com",
+	"EngineVersion": "5.1.0",
+	"EnabledByDefault": true,
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "InstancedStaticMeshConverter",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}
