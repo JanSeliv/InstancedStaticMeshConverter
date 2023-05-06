@@ -18,6 +18,9 @@ public class InstancedStaticMeshConverter : ModuleRules
 		PrivateDependencyModuleNames.AddRange(new[]
 			{
 				"CoreUObject", "Engine", "Slate", "SlateCore" // Core
+				, "ProceduralMeshComponent"
+				, "MeshDescription"
+				, "RawMesh"
 			}
 		);
 	}
