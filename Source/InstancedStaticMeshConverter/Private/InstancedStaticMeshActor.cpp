@@ -4,8 +4,7 @@
 //---
 #include "Components/InstancedStaticMeshComponent.h"
 #include "ProceduralMeshComponent.h"
-#include "ProceduralMeshConversion.h"
-#include "StaticMeshDescription.h"
+#include "RawMesh.h"
 
 // Sets default values
 AInstancedStaticMeshActor::AInstancedStaticMeshActor()
@@ -271,35 +270,88 @@ UProceduralMeshComponent& AInstancedStaticMeshActor::MergeStaticMeshesIntoProced
 
 UStaticMesh* AInstancedStaticMeshActor::ConvertProceduralMeshToStaticMesh(UProceduralMeshComponent& ProcMeshComp, AActor& Outer)
 {
+	FRawMesh RawMesh;
 	TArray<UMaterialInterface*> MeshMaterials;
 	const int32 NumSections = ProcMeshComp.GetNumSections();
+	int32 VertexBase = 0;
 	for (int32 SectionIdx = 0; SectionIdx < NumSections; SectionIdx++)
 	{
-		MeshMaterials.Emplace(ProcMeshComp.GetMaterial(SectionIdx));
+		FProcMeshSection* ProcSection = ProcMeshComp.GetProcMeshSection(SectionIdx);
+
+		// Copy verts
+		for (FProcMeshVertex& Vert : ProcSection->ProcVertexBuffer)
+		{
+			RawMesh.VertexPositions.Add(FVector3f(Vert.Position));
+		}
+
+		// Copy 'wedge' info
+		const int32 NumIndices = ProcSection->ProcIndexBuffer.Num();
+		for (int32 IndexIdx = 0; IndexIdx < NumIndices; IndexIdx++)
+		{
+			const int32 Index = ProcSection->ProcIndexBuffer[IndexIdx];
+			RawMesh.WedgeIndices.Add(Index + VertexBase);
+			FProcMeshVertex& ProcVertex = ProcSection->ProcVertexBuffer[Index];
+			FVector3f TangentX = FVector3f(ProcVertex.Tangent.TangentX);
+			FVector3f TangentZ = FVector3f(ProcVertex.Normal);
+			FVector3f TangentY = FVector3f(
+				(TangentX ^ TangentZ).GetSafeNormal() * (ProcVertex.Tangent.bFlipTangentY ? -1.f : 1.f));
+			RawMesh.WedgeTangentX.Add(TangentX);
+			RawMesh.WedgeTangentY.Add(TangentY);
+			RawMesh.WedgeTangentZ.Add(TangentZ);
+			RawMesh.WedgeTexCoords[0].Add(FVector2f(ProcVertex.UV0));
+			RawMesh.WedgeColors.Add(ProcVertex.Color);
+		}
+
+		// copy face info
+		const int32 NumTris = NumIndices / 3;
+		for (int32 TriIdx = 0; TriIdx < NumTris; TriIdx++)
+		{
+			RawMesh.FaceMaterialIndices.Add(SectionIdx);
+			RawMesh.FaceSmoothingMasks.Add(0); // Assume this is ignored as bRecomputeNormals is false
+		}
+		// Remember material
+		MeshMaterials.Add(ProcMeshComp.GetMaterial(SectionIdx));
+		// Update offset for creating one big index/vertex buffer
+		VertexBase += ProcSection->ProcVertexBuffer.Num();
+	}
+
+	// If we got some valid data.
+	if (RawMesh.VertexPositions.Num() <= 3 || RawMesh.WedgeIndices.Num() <= 3)
+	{
+		ensureMsgf(false, TEXT("%s: Can not merge actor, it got invalid data"), *FString(__FUNCTION__));
+		return nullptr;
 	}
 
 	UStaticMesh* StaticMesh = NewObject<UStaticMesh>(&Outer, NAME_None, RF_Transient);
-	StaticMesh->bAllowCPUAccess = true;
-	StaticMesh->NeverStream = true;
 	StaticMesh->InitResources();
-	StaticMesh->SetLightingGuid();
+	FGuid::NewGuid() = StaticMesh->GetLightingGuid();
+
+	// Create a Source Model then set it to variable
+	StaticMesh->AddSourceModel();
+	FStaticMeshSourceModel& SrcModel = StaticMesh->GetSourceModel(0);
+	// Add source to new StaticMesh
+	SrcModel.BuildSettings.bRecomputeNormals = false;
+	SrcModel.BuildSettings.bRecomputeTangents = false;
+	SrcModel.BuildSettings.bRemoveDegenerates = false;
+	SrcModel.BuildSettings.bUseHighPrecisionTangentBasis = false;
+	SrcModel.BuildSettings.bUseFullPrecisionUVs = false;
+	SrcModel.BuildSettings.bGenerateLightmapUVs = true;
+	SrcModel.BuildSettings.SrcLightmapIndex = 0;
+	SrcModel.BuildSettings.DstLightmapIndex = 1;
+	SrcModel.RawMeshBulkData->SaveRawMesh(RawMesh);
 
 	// Copy materials to new mesh
 	for (UMaterialInterface* Material : MeshMaterials)
 	{
-		StaticMesh->GetStaticMaterials().Emplace(FStaticMaterial(Material));
+		StaticMesh->GetStaticMaterials().Add(FStaticMaterial(Material));
 	}
 
-	const FMeshDescription PMC_Description = BuildMeshDescription(&ProcMeshComp);
-	UStaticMeshDescription* SM_Description = StaticMesh->CreateStaticMeshDescription();
-	SM_Description->SetMeshDescription(PMC_Description);
-	StaticMesh->BuildFromStaticMeshDescriptions({SM_Description}, false);
+	//Set the Imported version before calling the build
+	StaticMesh->ImportVersion = LastVersion;
 
-#if WITH_EDITOR
+	// Build mesh from source
+	StaticMesh->Build(false);
 	StaticMesh->PostEditChange();
-#endif
-
-	StaticMesh->MarkPackageDirty();
 
 	return StaticMesh;
 }
