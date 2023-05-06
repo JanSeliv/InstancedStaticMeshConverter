@@ -108,7 +108,24 @@ FCachedActorMeshInstances* AInstancedStaticMeshActor::FindOrCreateInstancedMeshe
 		InstancedStaticMeshComponent->RegisterComponent();
 		InstancedStaticMeshComponent->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepRelativeTransform);
 		InstancedStaticMeshComponent->SetStaticMesh(StaticMesh);
-		InstancedStaticMeshComponent->SetMaterial(0, StaticMeshComponent->GetMaterial(0));
+
+		// Prepare materials: copy from static mesh component to instanced static mesh component
+		const int32 NumMaterials = StaticMeshComponent->GetNumMaterials();
+		for (int32 MaterialIndex = 0; MaterialIndex < NumMaterials; ++MaterialIndex)
+		{
+			UMaterialInterface* MaterialIt = StaticMeshComponent->GetMaterial(MaterialIndex);
+			if (!MaterialIt)
+			{
+				continue;
+			}
+
+			if (UMaterial* Material = Cast<UMaterial>(MaterialIt))
+			{
+				Material->bUsedWithInstancedStaticMeshes = true;
+			}
+
+			InstancedStaticMeshComponent->SetMaterial(MaterialIndex, MaterialIt);
+		}
 
 		FCachedInstancedStaticMeshData CachedStaticMeshData;
 		CachedStaticMeshData.StaticMesh = StaticMesh;
