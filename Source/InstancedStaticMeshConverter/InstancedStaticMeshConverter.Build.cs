@@ -20,7 +20,6 @@ public class InstancedStaticMeshConverter : ModuleRules
 				"CoreUObject", "Engine", "Slate", "SlateCore" // Core
 				, "ProceduralMeshComponent"
 				, "MeshDescription"
-				, "RawMesh"
 			}
 		);
 	}
