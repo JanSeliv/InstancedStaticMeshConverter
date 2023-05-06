@@ -41,5 +41,5 @@ protected:
 	FCachedActorMeshInstances* FindCachedActorMeshInstances(TSubclassOf<AActor> ActorBlueprint);
 
 	/** If not cached yet, tries to obtain the static meshes by spawning actor. */
-	FCachedActorMeshInstances* FindOrCreateInstancedMeshes(TSubclassOf<AActor> ActorBlueprint);
+	FCachedActorMeshInstances* FindOrCreateInstancedMeshes(TSubclassOf<AActor> ActorClass);
 };

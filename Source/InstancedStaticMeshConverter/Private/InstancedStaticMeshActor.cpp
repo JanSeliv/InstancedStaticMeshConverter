@@ -72,9 +72,9 @@ FCachedActorMeshInstances* AInstancedStaticMeshActor::FindCachedActorMeshInstanc
 }
 
 // If not cached yet, tries to obtain the static meshes by spawning actor
-FCachedActorMeshInstances* AInstancedStaticMeshActor::FindOrCreateInstancedMeshes(TSubclassOf<AActor> ActorBlueprint)
+FCachedActorMeshInstances* AInstancedStaticMeshActor::FindOrCreateInstancedMeshes(TSubclassOf<AActor> ActorClass)
 {
-	FCachedActorMeshInstances* CachedActorMeshInstance = FindCachedActorMeshInstances(ActorBlueprint);
+	FCachedActorMeshInstances* CachedActorMeshInstance = FindCachedActorMeshInstances(ActorClass);
 	if (CachedActorMeshInstance)
 	{
 		// Already cached
@@ -84,14 +84,14 @@ FCachedActorMeshInstances* AInstancedStaticMeshActor::FindOrCreateInstancedMeshe
 	// Obtain meshes from given actor class if it's not cached yet
 
 	FCachedActorMeshInstances& NewActorMeshInstance = CachedBlueprintMeshes.Emplace_GetRef();
-	NewActorMeshInstance.ActorBlueprint = ActorBlueprint;
+	NewActorMeshInstance.ActorBlueprint = ActorClass;
 
 	// We can't obtain components from a blueprint, so we need to spawn an actor from it and cache its components
-	AActor* BlueprintActor = GetWorld()->SpawnActor<AActor>(ActorBlueprint);
-	checkf(ActorBlueprint, TEXT("%s: ERROR: 'ActorBlueprint' is null!"), *FString(__FUNCTION__));
+	AActor* SpawnedActor = GetWorld()->SpawnActor<AActor>(ActorClass);
+	checkf(ActorClass, TEXT("%s: ERROR: 'ActorClass' is null!"), *FString(__FUNCTION__));
 
 	TArray<UStaticMeshComponent*> StaticMeshComponents;
-	BlueprintActor->GetComponents<UStaticMeshComponent>(StaticMeshComponents);
+	SpawnedActor->GetComponents<UStaticMeshComponent>(StaticMeshComponents);
 
 	for (const UStaticMeshComponent* StaticMeshComponent : StaticMeshComponents)
 	{
@@ -129,14 +129,14 @@ FCachedActorMeshInstances* AInstancedStaticMeshActor::FindOrCreateInstancedMeshe
 
 		FCachedInstancedStaticMeshData CachedStaticMeshData;
 		CachedStaticMeshData.StaticMesh = StaticMesh;
-		CachedStaticMeshData.RelativeTransform = StaticMeshComponent->GetRelativeTransform();
+		CachedStaticMeshData.RelativeTransform = StaticMeshComponent->GetComponentTransform().GetRelativeTransform(SpawnedActor->GetActorTransform());
 		CachedStaticMeshData.InstancedStaticMeshComponent = InstancedStaticMeshComponent;
 
 		NewActorMeshInstance.InstancedStaticMeshDataArray.Emplace(CachedStaticMeshData);
 	}
 
 	// All components are cached, so we can destroy the actor
-	BlueprintActor->Destroy();
+	SpawnedActor->Destroy();
 
 	return &NewActorMeshInstance;
 }
