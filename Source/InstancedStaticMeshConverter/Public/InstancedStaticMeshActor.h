@@ -4,6 +4,8 @@
 
 #include "GameFramework/Actor.h"
 //---
+#include "InstancedDataTypes.h"
+//---
 #include "InstancedStaticMeshActor.generated.h"
 
 class UInstancedStaticMeshComponent;
@@ -19,19 +21,25 @@ class INSTANCEDSTATICMESHCONVERTER_API AInstancedStaticMeshActor : public AActor
 public:
 	AInstancedStaticMeshActor();
 
+	/** Creates all instanced static meshes for each static mesh component contained in given actor class. */
 	UFUNCTION(BlueprintCallable, Category = "InstancedStaticMesh")
 	void SpawnInstance(const FTransform& Transform, TSubclassOf<AActor> ActorBlueprint);
 
-	UFUNCTION(BlueprintCallable, Category = "InstancedStaticMesh", meta = (Keywords = "Clear"))
+	/** Removes all mesh instances created by this actor. */
+	UFUNCTION(BlueprintCallable, Category = "InstancedStaticMesh", meta = (Keywords = "Clear,Empty,Remove"))
 	void ResetAllInstances();
 
 protected:
+	/** Cached data about all created instanced static meshes of specific actor class. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Transient, Category = "InstancedStaticMesh", meta = (BlueprintProtected))
-	TMap<TObjectPtr<UStaticMesh>, TObjectPtr<UInstancedStaticMeshComponent>> InstancedStaticMeshComponents;
+	TArray<FCachedActorMeshInstances> CachedBlueprintMeshes;
 
-	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+	/** Called when this actor is explicitly being destroyed during gameplay or in the editor, not called during level streaming or gameplay ending */
+	virtual void Destroyed() override;
 
-	/** Completely destroys all instances of all instanced static mesh components. */
-	UFUNCTION(BlueprintCallable, Category = "C++", meta = (BlueprintProtected))
-	void DestroyAllInstances();
+	/** Tries to find cached data about given actor class if was spawned before. */
+	FCachedActorMeshInstances* FindCachedActorMeshInstances(TSubclassOf<AActor> ActorBlueprint);
+
+	/** If not cached yet, tries to obtain the static meshes by spawning actor. */
+	FCachedActorMeshInstances* FindOrCreateInstancedMeshes(TSubclassOf<AActor> ActorBlueprint);
 };

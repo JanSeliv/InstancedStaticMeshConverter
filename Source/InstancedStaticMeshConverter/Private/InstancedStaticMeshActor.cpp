@@ -18,64 +18,108 @@ void AInstancedStaticMeshActor::SpawnInstance(const FTransform& Transform, TSubc
 		return;
 	}
 
-	const AActor* BlueprintCDO = ActorBlueprint->GetDefaultObject<AActor>();
-	checkf(BlueprintCDO, TEXT("%s: ERROR: 'BlueprintCDO' is null!"), *FString(__FUNCTION__));
+	FCachedActorMeshInstances* CachedActorMeshInstance = FindOrCreateInstancedMeshes(ActorBlueprint);
+	checkf(CachedActorMeshInstance, TEXT("%s: ERROR: 'CachedActorMeshInstance' is null!"), *FString(__FUNCTION__));
 
-	TArray<UStaticMeshComponent*> StaticMeshComponents;
-	BlueprintCDO->GetComponents<UStaticMeshComponent>(StaticMeshComponents);
-
-	for (const UStaticMeshComponent* StaticMeshComponent : StaticMeshComponents)
+	for (const FCachedInstancedStaticMeshData& It : CachedActorMeshInstance->InstancedStaticMeshDataArray)
 	{
-		UStaticMesh* StaticMesh = StaticMeshComponent->GetStaticMesh();
-		UInstancedStaticMeshComponent* InstancedStaticMeshComponent = nullptr;
-
-		if (InstancedStaticMeshComponents.Contains(StaticMesh))
+		if (UInstancedStaticMeshComponent* InstancedComponent = It.InstancedStaticMeshComponent)
 		{
-			InstancedStaticMeshComponent = InstancedStaticMeshComponents[StaticMesh];
+			constexpr bool bWorldSpace = true;
+			const FTransform CombinedTransform = It.RelativeTransform * Transform;
+			InstancedComponent->AddInstance(CombinedTransform, bWorldSpace);
 		}
-		else
-		{
-			InstancedStaticMeshComponent = NewObject<UInstancedStaticMeshComponent>(this);
-			InstancedStaticMeshComponent->RegisterComponent();
-			InstancedStaticMeshComponent->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepRelativeTransform);
-			InstancedStaticMeshComponent->SetStaticMesh(StaticMesh);
-			InstancedStaticMeshComponent->SetMaterial(0, StaticMeshComponent->GetMaterial(0));
-			InstancedStaticMeshComponents.Emplace(StaticMesh, InstancedStaticMeshComponent);
-		}
-
-		InstancedStaticMeshComponent->AddInstance(Transform);
 	}
 }
 
 void AInstancedStaticMeshActor::ResetAllInstances()
 {
-	for (const TTuple<TObjectPtr<UStaticMesh>, TObjectPtr<UInstancedStaticMeshComponent>>& Entry : InstancedStaticMeshComponents)
+	for (const FCachedActorMeshInstances& CachedActorMeshInstance : CachedBlueprintMeshes)
 	{
-		UInstancedStaticMeshComponent* InstancedStaticMeshComponent = Entry.Value;
-		InstancedStaticMeshComponent->ClearInstances();
+		for (const FCachedInstancedStaticMeshData& InstancedStaticMeshData : CachedActorMeshInstance.InstancedStaticMeshDataArray)
+		{
+			if (InstancedStaticMeshData.InstancedStaticMeshComponent)
+			{
+				InstancedStaticMeshData.InstancedStaticMeshComponent->ClearInstances();
+			}
+		}
 	}
 }
 
-void AInstancedStaticMeshActor::EndPlay(const EEndPlayReason::Type EndPlayReason)
+void AInstancedStaticMeshActor::Destroyed()
 {
-	DestroyAllInstances();
+	if (IsValid(this))
+	{
+		ResetAllInstances();
+		CachedBlueprintMeshes.Empty();
+	}
 
-	Super::EndPlay(EndPlayReason);
+	Super::Destroyed();
 }
 
-// Completely destroys all instances of all instanced static mesh components
-void AInstancedStaticMeshActor::DestroyAllInstances()
+// Tries to find cached data about given actor class if was spawned before
+FCachedActorMeshInstances* AInstancedStaticMeshActor::FindCachedActorMeshInstances(TSubclassOf<AActor> ActorBlueprint)
 {
-	TArray<UInstancedStaticMeshComponent*> MapValues;
-	for (int32 Index = MapValues.Num() - 1; Index >= 0; --Index)
+	for (FCachedActorMeshInstances& CachedActorMeshInstance : CachedBlueprintMeshes)
 	{
-		UInstancedStaticMeshComponent* ComponentIt = MapValues.IsValidIndex(Index) ? MapValues[Index] : nullptr;
-		if (ComponentIt)
+		if (CachedActorMeshInstance.ActorBlueprint == ActorBlueprint)
 		{
-			ComponentIt->ClearInstances();
-			ComponentIt->DestroyComponent();
+			return &CachedActorMeshInstance;
 		}
 	}
 
-	MapValues.Empty();
+	return nullptr;
+}
+
+// If not cached yet, tries to obtain the static meshes by spawning actor
+FCachedActorMeshInstances* AInstancedStaticMeshActor::FindOrCreateInstancedMeshes(TSubclassOf<AActor> ActorBlueprint)
+{
+	FCachedActorMeshInstances* CachedActorMeshInstance = FindCachedActorMeshInstances(ActorBlueprint);
+	if (CachedActorMeshInstance)
+	{
+		// Already cached
+		return CachedActorMeshInstance;
+	}
+
+	// Obtain meshes from given actor class if it's not cached yet
+
+	FCachedActorMeshInstances& NewActorMeshInstance = CachedBlueprintMeshes.Emplace_GetRef();
+	NewActorMeshInstance.ActorBlueprint = ActorBlueprint;
+
+	// We can't obtain components from a blueprint, so we need to spawn an actor from it and cache its components
+	AActor* BlueprintActor = GetWorld()->SpawnActor<AActor>(ActorBlueprint);
+	checkf(ActorBlueprint, TEXT("%s: ERROR: 'ActorBlueprint' is null!"), *FString(__FUNCTION__));
+
+	TArray<UStaticMeshComponent*> StaticMeshComponents;
+	BlueprintActor->GetComponents<UStaticMeshComponent>(StaticMeshComponents);
+
+	for (const UStaticMeshComponent* StaticMeshComponent : StaticMeshComponents)
+	{
+		UStaticMesh* StaticMesh = StaticMeshComponent ? StaticMeshComponent->GetStaticMesh() : nullptr;
+		if (!StaticMesh
+			|| !StaticMeshComponent->IsVisible()
+			|| StaticMeshComponent->bHiddenInGame)
+		{
+			// Static mesh is not chosen or hidden
+			continue;
+		}
+
+		UInstancedStaticMeshComponent* InstancedStaticMeshComponent = NewObject<UInstancedStaticMeshComponent>(this);
+		InstancedStaticMeshComponent->RegisterComponent();
+		InstancedStaticMeshComponent->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepRelativeTransform);
+		InstancedStaticMeshComponent->SetStaticMesh(StaticMesh);
+		InstancedStaticMeshComponent->SetMaterial(0, StaticMeshComponent->GetMaterial(0));
+
+		FCachedInstancedStaticMeshData CachedStaticMeshData;
+		CachedStaticMeshData.StaticMesh = StaticMesh;
+		CachedStaticMeshData.RelativeTransform = StaticMeshComponent->GetRelativeTransform();
+		CachedStaticMeshData.InstancedStaticMeshComponent = InstancedStaticMeshComponent;
+
+		NewActorMeshInstance.InstancedStaticMeshDataArray.Emplace(CachedStaticMeshData);
+	}
+
+	// All components are cached, so we can destroy the actor
+	BlueprintActor->Destroy();
+
+	return &NewActorMeshInstance;
 }
