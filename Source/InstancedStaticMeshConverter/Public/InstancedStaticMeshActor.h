@@ -9,7 +9,6 @@
 #include "InstancedStaticMeshActor.generated.h"
 
 class UInstancedStaticMeshComponent;
-class UStaticMesh;
 
 /**
  * Converts actors with static meshes to instanced static meshes.
@@ -43,18 +42,4 @@ protected:
 
 	/** If not cached yet, tries to obtain the static meshes by spawning actor. */
 	FCachedActorMeshInstances* FindOrCreateInstancedMeshes(TSubclassOf<AActor> ActorBlueprint);
-
-	/** Returns all visible static mesh components of the given actor. */
-	UFUNCTION(BlueprintCallable, Category = "C++", meta = (BlueprintProtected))
-	static void GetVisibleStaticMeshComponents(TArray<UStaticMeshComponent*>& StaticMeshComponents, const AActor* InActor);
-
-	/** Toggles 'Used With Instanced Static Meshes' flag for all given static mesh components. */
-	UFUNCTION(BlueprintCallable, Category = "C++", meta = (BlueprintProtected))
-	static void SetAllMaterialsInstancedInComponents(const TArray<UStaticMeshComponent*>& StaticMeshComponents);
-
-	/** Returns merged static mesh from all given static mesh components. */
-	UFUNCTION(BlueprintCallable, Category = "C++", meta = (BlueprintProtected))
-	static UStaticMesh* MergeStaticMeshes(const TArray<UStaticMeshComponent*>& StaticMeshComponents, AActor* Outer);
-	static class UProceduralMeshComponent& MergeStaticMeshesIntoProceduralComponent(const TArray<UStaticMeshComponent*>& StaticMeshComponents, AActor& Outer);
-	static UStaticMesh* ConvertProceduralMeshToStaticMesh(UProceduralMeshComponent& ProcMeshComp, AActor& Outer);
 };
