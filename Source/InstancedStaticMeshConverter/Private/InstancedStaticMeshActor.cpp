@@ -119,12 +119,17 @@ FCachedActorMeshInstances* AInstancedStaticMeshActor::FindOrCreateInstancedMeshe
 				continue;
 			}
 
+			InstancedStaticMeshComponent->SetMaterial(MaterialIndex, MaterialIt);
+
+			// Mark material as used with instanced static meshes
+			if (const UMaterialInstanceDynamic* MaterialInstance = Cast<UMaterialInstanceDynamic>(MaterialIt))
+			{
+				MaterialIt = MaterialInstance->Parent;
+			}
 			if (UMaterial* Material = Cast<UMaterial>(MaterialIt))
 			{
 				Material->bUsedWithInstancedStaticMeshes = true;
 			}
-
-			InstancedStaticMeshComponent->SetMaterial(MaterialIndex, MaterialIt);
 		}
 
 		FCachedInstancedStaticMeshData CachedStaticMeshData;
