@@ -7,7 +7,7 @@
 #include "InstancedDataTypes.generated.h"
 
 /**
- *Data obtained from specific static mesh component of actor class
+ * Data obtained from specific static mesh component of actor class
  */
 USTRUCT(BlueprintType)
 struct FCachedInstancedStaticMeshData

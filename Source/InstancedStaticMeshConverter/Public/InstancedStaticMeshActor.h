@@ -23,7 +23,11 @@ public:
 
 	/** Creates all instanced static meshes for each static mesh component contained in given actor class. */
 	UFUNCTION(BlueprintCallable, Category = "InstancedStaticMesh")
-	void SpawnInstance(const FTransform& Transform, TSubclassOf<AActor> ActorBlueprint);
+	void SpawnInstanceByActor(const FTransform& Transform, TSubclassOf<AActor> ActorBlueprint);
+
+	/** Spawns an instance of the specified static mesh with the given transform. */
+	UFUNCTION(BlueprintCallable, Category = "InstancedStaticMesh")
+	void SpawnInstanceByMesh(const FTransform& Transform, const UStaticMesh* Mesh);
 
 	/** Removes all mesh instances created by this actor. */
 	UFUNCTION(BlueprintCallable, Category = "InstancedStaticMesh", meta = (Keywords = "Clear,Empty,Remove"))
