@@ -1,8 +1,10 @@
-﻿// Copyright (c) Yevhenii Selivanov
+// Copyright (c) Yevhenii Selivanov
 
 #include "InstancedStaticMeshActor.h"
 //---
 #include "Components/InstancedStaticMeshComponent.h"
+//---
+#include UE_INLINE_GENERATED_CPP_BY_NAME(InstancedStaticMeshActor)
 
 // Sets default values
 AInstancedStaticMeshActor::AInstancedStaticMeshActor()
@@ -11,7 +13,7 @@ AInstancedStaticMeshActor::AInstancedStaticMeshActor()
 	PrimaryActorTick.bCanEverTick = false;
 }
 
-void AInstancedStaticMeshActor::SpawnInstance(const FTransform& Transform, TSubclassOf<AActor> ActorBlueprint)
+void AInstancedStaticMeshActor::SpawnInstanceByActor(const FTransform& Transform, TSubclassOf<AActor> ActorBlueprint)
 {
 	if (!ensureMsgf(ActorBlueprint, TEXT("%s: 'ActorBlueprint' is not valid"), *FString(__FUNCTION__)))
 	{
@@ -30,6 +32,50 @@ void AInstancedStaticMeshActor::SpawnInstance(const FTransform& Transform, TSubc
 			InstancedComponent->AddInstance(CombinedTransform, bWorldSpace);
 		}
 	}
+}
+
+// Spawns an instance of the specified static mesh with the given transform
+void AInstancedStaticMeshActor::SpawnInstanceByMesh(const FTransform& Transform, const UStaticMesh* Mesh)
+{
+	if (!Mesh)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Mesh is not valid"));
+		return;
+	}
+
+	// Find if an InstancedStaticMeshComponent for this Mesh already exists
+	UInstancedStaticMeshComponent* ExistingInstancedComponent = nullptr;
+	for (const FCachedActorMeshInstances& CachedActorMeshInstance : CachedBlueprintMeshes)
+	{
+		for (const FCachedInstancedStaticMeshData& InstancedStaticMeshData : CachedActorMeshInstance.InstancedStaticMeshDataArray)
+		{
+			if (InstancedStaticMeshData.StaticMesh == Mesh && InstancedStaticMeshData.InstancedStaticMeshComponent)
+			{
+				ExistingInstancedComponent = InstancedStaticMeshData.InstancedStaticMeshComponent;
+				break;
+			}
+		}
+	}
+
+	// If it doesn't exist, create a new InstancedStaticMeshComponent for this Mesh
+	if (!ExistingInstancedComponent)
+	{
+		ExistingInstancedComponent = NewObject<UInstancedStaticMeshComponent>(this);
+		ExistingInstancedComponent->RegisterComponent();
+		ExistingInstancedComponent->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepRelativeTransform);
+		ExistingInstancedComponent->SetStaticMesh(const_cast<UStaticMesh*>(Mesh));
+
+		// Cache this new InstancedStaticMeshComponent
+		FCachedInstancedStaticMeshData NewCachedStaticMeshData;
+		NewCachedStaticMeshData.StaticMesh = const_cast<UStaticMesh*>(Mesh);
+		NewCachedStaticMeshData.InstancedStaticMeshComponent = ExistingInstancedComponent;
+
+		FCachedActorMeshInstances& NewActorMeshInstance = CachedBlueprintMeshes.Emplace_GetRef();
+		NewActorMeshInstance.InstancedStaticMeshDataArray.Emplace(NewCachedStaticMeshData);
+	}
+
+	// Add an instance with the specified transform
+	ExistingInstancedComponent->AddInstance(Transform);
 }
 
 void AInstancedStaticMeshActor::ResetAllInstances()
