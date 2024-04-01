@@ -3,6 +3,9 @@
 #include "InstancedStaticMeshActor.h"
 //---
 #include "Components/InstancedStaticMeshComponent.h"
+#include "Engine/World.h"
+#include "Materials/Material.h"
+#include "Materials/MaterialInstanceDynamic.h"
 //---
 #include UE_INLINE_GENERATED_CPP_BY_NAME(InstancedStaticMeshActor)
 
