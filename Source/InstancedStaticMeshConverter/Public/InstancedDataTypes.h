@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "CoreMinimal.h"
+#include "Templates/SubclassOf.h"
 //---
 #include "InstancedDataTypes.generated.h"
 
