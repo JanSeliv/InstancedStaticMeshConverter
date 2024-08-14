@@ -35,7 +35,7 @@ public:
 
 protected:
 	/** Cached data about all created instanced static meshes of specific actor class. */
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Transient, Category = "InstancedStaticMesh", meta = (BlueprintProtected))
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Transient, AdvancedDisplay, Category = "InstancedStaticMesh", meta = (BlueprintProtected))
 	TArray<FCachedActorMeshInstances> CachedBlueprintMeshes;
 
 	/** Called when this actor is explicitly being destroyed during gameplay or in the editor, not called during level streaming or gameplay ending */
