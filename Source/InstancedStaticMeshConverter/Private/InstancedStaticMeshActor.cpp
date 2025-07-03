@@ -67,6 +67,7 @@ void AInstancedStaticMeshActor::SpawnInstanceByMesh(const FTransform& Transform,
 		ExistingInstancedComponent->RegisterComponent();
 		ExistingInstancedComponent->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepRelativeTransform);
 		ExistingInstancedComponent->SetStaticMesh(const_cast<UStaticMesh*>(Mesh));
+		ExistingInstancedComponent->SetCanEverAffectNavigation(false);
 
 		// Cache this new InstancedStaticMeshComponent
 		FCachedInstancedStaticMeshData NewCachedStaticMeshData;
