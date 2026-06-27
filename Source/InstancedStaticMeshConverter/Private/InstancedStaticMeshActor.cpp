@@ -178,7 +178,7 @@ FCachedActorMeshInstances* AInstancedStaticMeshActor::FindOrCreateInstancedMeshe
 			}
 			if (UMaterial* Material = Cast<UMaterial>(MaterialIt))
 			{
-				Material->bUsedWithInstancedStaticMeshes = true;
+				Material->SetUsageByFlag(MATUSAGE_InstancedStaticMeshes, true);
 			}
 		}
 
